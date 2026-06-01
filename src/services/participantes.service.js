@@ -24,6 +24,18 @@ const getById = async (id) => {
   return data;
 };
 
+// Función auxiliar: calcula el siguiente numero_corredor
+const _nextNumeroCorredor = async () => {
+  const { data, error } = await supabase
+    .from('participantes')
+    .select('numero_corredor')
+    .order('numero_corredor', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.numero_corredor || 0) + 1;
+};
+
 const create = async ({ nombre_completo, categoria, talla_tshirt }) => {
   if (!nombre_completo || nombre_completo.trim() === '') {
     const err = new Error('El nombre_completo es obligatorio');
@@ -41,7 +53,7 @@ const create = async ({ nombre_completo, categoria, talla_tshirt }) => {
     throw err;
   }
 
-  // Verificar límite de 200 cupos solo para registro directo
+  // Verificar límite de 200 cupos (solo registro directo)
   const { count, error: countErr } = await supabase
     .from('participantes')
     .select('*', { count: 'exact', head: true })
@@ -53,13 +65,21 @@ const create = async ({ nombre_completo, categoria, talla_tshirt }) => {
     throw err;
   }
 
+  // Asignar numero_corredor en Node.js (sin depender de trigger)
+  const numero_corredor = await _nextNumeroCorredor();
+
   const { data, error } = await supabase
     .from('participantes')
-    .insert({ nombre_completo: nombre_completo.trim(), categoria, talla_tshirt })
+    .insert({ nombre_completo: nombre_completo.trim(), categoria, talla_tshirt, numero_corredor, estado: 'Activo' })
     .select()
     .single();
   if (error) throw new Error(error.message);
   replicateUpsert('participantes', data);
+
+  // Crear pago pendiente y kit (antes lo hacía el trigger trigger_crear_pago_y_kit)
+  await supabase.from('pagos').insert({ participante_id: data.id, estado_pago: 'Pendiente' });
+  await supabase.from('kits').insert({ participante_id: data.id, kit_entregado: false });
+
   return data;
 };
 

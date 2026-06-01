@@ -215,6 +215,18 @@ const asignarMultiple = async ({ alumno_id, cantidad }) => {
   return data;
 };
 
+// Función auxiliar: calcula el siguiente numero_corredor
+const _nextNumeroCorredor = async () => {
+  const { data, error } = await supabase
+    .from('participantes')
+    .select('numero_corredor')
+    .order('numero_corredor', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.numero_corredor || 0) + 1;
+};
+
 const _getBoletoRaw = async (id) => {
   const { data, error } = await supabase
     .from('boletos_preventa')
@@ -286,7 +298,8 @@ const marcarVendido = async (id, { nombre_comprador, categoria, talla_tshirt, mo
       .eq('id', participanteId);
     if (pErr) throw new Error(pErr.message);
   } else {
-    // Crear participante nuevo (origen Preventa, se registra al confirmar el pago)
+    // Crear participante nuevo — asignar numero_corredor en Node.js (sin trigger)
+    const numero_corredor = await _nextNumeroCorredor();
     const { data: participante, error: pErr } = await supabase
       .from('participantes')
       .insert({
@@ -294,6 +307,7 @@ const marcarVendido = async (id, { nombre_comprador, categoria, talla_tshirt, mo
         categoria,
         talla_tshirt,
         estado: 'Activo',
+        numero_corredor,
       })
       .select()
       .single();
