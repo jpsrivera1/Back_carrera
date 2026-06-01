@@ -106,15 +106,24 @@ const cancelar = async (id) => {
     throw err;
   }
 
-  const { data, error } = await supabase
+  // Eliminar kits y pagos asociados
+  await supabase.from('kits').delete().eq('participante_id', id);
+  await supabase.from('pagos').delete().eq('participante_id', id);
+
+  // Si tiene boleto preventa vinculado, desvincularlo
+  await supabase
+    .from('boletos_preventa')
+    .update({ participante_id: null, estado_boleto: 'Disponible' })
+    .eq('participante_id', id);
+
+  // Eliminar el participante completamente
+  const { error } = await supabase
     .from('participantes')
-    .update({ estado: 'Cancelado' })
-    .eq('id', id)
-    .select()
-    .single();
+    .delete()
+    .eq('id', id);
   if (error) throw new Error(error.message);
-  replicateUpsert('participantes', data);
-  return data;
+
+  return { id, deleted: true };
 };
 
 const buscar = async (termino) => {
