@@ -393,19 +393,24 @@ const anularBoleto = async (id, { observacion }) => {
     throw err;
   }
 
-  // Liberar el número de corredor: marcar participante como Cancelado
-  // (el número queda registrado pero ya no ocupa cupo activo)
+  // Eliminar completamente al participante vinculado (si existe) para no dejar registros huérfanos
   if (current.participante_id) {
+    await supabase.from('kits').delete().eq('participante_id', current.participante_id);
+    await supabase.from('pagos').delete().eq('participante_id', current.participante_id);
     const { error: pErr } = await supabase
       .from('participantes')
-      .update({ estado: 'Cancelado' })
+      .delete()
       .eq('id', current.participante_id);
     if (pErr) throw new Error(pErr.message);
   }
 
   const { data, error } = await supabase
     .from('boletos_preventa')
-    .update({ estado_boleto: 'Anulado', observacion: observacion || null })
+    .update({
+      estado_boleto:   'Anulado',
+      participante_id: null,
+      observacion:     observacion || null,
+    })
     .eq('id', id)
     .select()
     .single();
