@@ -41,6 +41,18 @@ const create = async ({ nombre_completo, categoria, talla_tshirt }) => {
     throw err;
   }
 
+  // Verificar límite de 200 cupos solo para registro directo
+  const { count, error: countErr } = await supabase
+    .from('participantes')
+    .select('*', { count: 'exact', head: true })
+    .eq('estado', 'Activo');
+  if (countErr) throw new Error(countErr.message);
+  if (count >= 200) {
+    const err = new Error('No hay cupos disponibles. El límite máximo general es de 200 cupos');
+    err.status = 400;
+    throw err;
+  }
+
   const { data, error } = await supabase
     .from('participantes')
     .insert({ nombre_completo: nombre_completo.trim(), categoria, talla_tshirt })
