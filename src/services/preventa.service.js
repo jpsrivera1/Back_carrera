@@ -269,33 +269,51 @@ const marcarVendido = async (id, { nombre_comprador, categoria, talla_tshirt, mo
     throw err;
   }
 
-  // 1. Crear el participante con los datos reales del comprador y la categoría elegida
-  //    El numero_corredor se asigna ahora por la BD (secuencia automática)
-  const { data: participante, error: pErr } = await supabase
-    .from('participantes')
-    .insert({
-      nombre_completo: nombre_comprador.trim(),
-      categoria,
-      talla_tshirt,
-      estado_pago: 'Pagado',
-      origen:      'Preventa',
-    })
-    .select()
-    .single();
-  if (pErr) throw new Error(pErr.message);
+  // 1. Reutilizar participante existente del boleto (si un intento previo lo creó)
+  //    o crear uno nuevo. Esto evita duplicados si la solicitud se repite.
+  let participanteId = current.participante_id || null;
 
-  // 2. Actualizar boleto con la categoría, participante_id y datos de venta
+  if (participanteId) {
+    // Ya existe un participante vinculado — solo actualizar sus datos
+    const { error: pErr } = await supabase
+      .from('participantes')
+      .update({
+        nombre_completo: nombre_comprador.trim(),
+        categoria,
+        talla_tshirt,
+        estado: 'Activo',
+      })
+      .eq('id', participanteId);
+    if (pErr) throw new Error(pErr.message);
+  } else {
+    // Crear participante nuevo (origen Preventa, se registra al confirmar el pago)
+    const { data: participante, error: pErr } = await supabase
+      .from('participantes')
+      .insert({
+        nombre_completo: nombre_comprador.trim(),
+        categoria,
+        talla_tshirt,
+        estado: 'Activo',
+      })
+      .select()
+      .single();
+    if (pErr) throw new Error(pErr.message);
+    participanteId = participante.id;
+  }
+
+  // 2. Actualizar boleto marcándolo como Vendido
   const { data, error } = await supabase
     .from('boletos_preventa')
     .update({
-      estado_boleto:    'Vendido',
+      estado_boleto:      'Vendido',
       categoria,
-      participante_id:  participante.id,
-      nombre_comprador: nombre_comprador.trim(),
+      participante_id:    participanteId,
+      nombre_comprador:   nombre_comprador.trim(),
       talla_tshirt,
-      monto:            parseFloat(monto),
+      monto:              parseFloat(monto),
       metodo_pago,
-      observacion:      observacion || null,
+      observacion:        observacion || null,
+      fecha_confirmacion: new Date().toISOString(),
     })
     .eq('id', id)
     .select()
@@ -303,12 +321,12 @@ const marcarVendido = async (id, { nombre_comprador, categoria, talla_tshirt, mo
   if (error) throw new Error(error.message);
   replicateUpsert('boletos_preventa', data);
 
-  // 3. Registrar pago vinculado al nuevo participante
+  // 3. Registrar/actualizar pago vinculado al participante
   const { error: pagoErr } = await supabase
     .from('pagos')
     .upsert(
       {
-        participante_id: participante.id,
+        participante_id: participanteId,
         monto:           parseFloat(monto),
         metodo_pago,
         estado_pago:     'Pagado',
@@ -319,11 +337,11 @@ const marcarVendido = async (id, { nombre_comprador, categoria, talla_tshirt, mo
     );
   if (pagoErr) throw new Error(pagoErr.message);
 
-  // 4. Registrar kit vinculado al nuevo participante
+  // 4. Registrar/actualizar kit vinculado al participante
   const { error: kitErr } = await supabase
     .from('kits')
     .upsert(
-      { participante_id: participante.id, kit_entregado: false },
+      { participante_id: participanteId, kit_entregado: false },
       { onConflict: 'participante_id' }
     );
   if (kitErr) throw new Error(kitErr.message);
