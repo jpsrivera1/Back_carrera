@@ -2,7 +2,7 @@ const supabase = require('../config/db');
 const { replicateUpsert } = require('./replication.service');
 
 const CATEGORIAS_VALIDAS = ['5K', '10K'];
-const TALLAS_VALIDAS = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const TALLAS_VALIDAS = ['4', '6', '8', '10', '12', '14', 'XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const ESTADOS_VALIDOS = ['Activo', 'Cancelado'];
 
 const getAll = async () => {
