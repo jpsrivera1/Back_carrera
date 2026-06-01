@@ -42,7 +42,7 @@ BEGIN
         numero_corredor  INT,
         nombre_completo  NVARCHAR(150) NOT NULL,
         categoria        NVARCHAR(10)  NOT NULL CHECK (categoria IN ('5K', '10K')),
-        talla_tshirt     NVARCHAR(5)   NOT NULL CHECK (talla_tshirt IN ('XS','S','M','L','XL','XXL')),
+        talla_tshirt     NVARCHAR(5)   NOT NULL CHECK (talla_tshirt IN ('4','6','8','10','12','14','XS','S','M','L','XL','XXL')),
         estado           NVARCHAR(20)  NOT NULL DEFAULT 'Activo' CHECK (estado IN ('Activo','Cancelado')),
         fecha_inscripcion DATETIME2    DEFAULT GETDATE()
     );
