@@ -269,6 +269,18 @@ const marcarVendido = async (id, { nombre_comprador, categoria, talla_tshirt, mo
     throw err;
   }
 
+  // Verificar cupos: solo cuentan participantes con estado 'Activo'
+  const { count: totalActivos, error: countErr } = await supabase
+    .from('participantes')
+    .select('*', { count: 'exact', head: true })
+    .eq('estado', 'Activo');
+  if (countErr) throw new Error(countErr.message);
+  if (totalActivos >= 200) {
+    const err = new Error('No hay cupos disponibles. El límite máximo general es de 200 cupos.');
+    err.status = 400;
+    throw err;
+  }
+
   // 1. Crear el participante con los datos reales del comprador y la categoría elegida
   //    El numero_corredor se asigna ahora por la BD (secuencia automática)
   const { data: participante, error: pErr } = await supabase
