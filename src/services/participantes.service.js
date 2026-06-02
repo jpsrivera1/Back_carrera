@@ -1,5 +1,4 @@
 const supabase = require('../config/db');
-const { replicateUpsert } = require('./replication.service');
 
 const CATEGORIAS_VALIDAS = ['5K', '10K'];
 const TALLAS_VALIDAS = ['4', '6', '8', '10', '12', '14', 'XS', 'S', 'M', 'L', 'XL', 'XXL'];
@@ -74,7 +73,6 @@ const create = async ({ nombre_completo, categoria, talla_tshirt }) => {
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('participantes', data);
 
   // Crear pago pendiente y kit (antes lo hacía el trigger trigger_crear_pago_y_kit)
   await supabase.from('pagos').insert({ participante_id: data.id, estado_pago: 'Pendiente' });
@@ -126,7 +124,6 @@ const update = async (id, { nombre_completo, categoria, talla_tshirt, estado }) 
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('participantes', data);
   return data;
 };
 

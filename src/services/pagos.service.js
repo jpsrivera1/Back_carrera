@@ -1,5 +1,4 @@
 const supabase = require('../config/db');
-const { replicateUpsert } = require('./replication.service');
 
 const METODOS_VALIDOS = ['Efectivo', 'Transferencia'];
 const ESTADOS_PAGO_VALIDOS = ['Pendiente', 'Pagado', 'Anulado'];
@@ -86,7 +85,6 @@ const updatePago = async (participante_id, { monto, metodo_pago, estado_pago, ob
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('pagos', data);
   return data;
 };
 

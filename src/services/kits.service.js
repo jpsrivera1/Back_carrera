@@ -1,5 +1,4 @@
 const supabase = require('../config/db');
-const { replicateUpsert } = require('./replication.service');
 
 const _formatKits = (rows) =>
   rows.map((k) => ({
@@ -63,7 +62,6 @@ const entregar = async (participante_id, { observacion }) => {
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('kits', data);
   return data;
 };
 
@@ -87,7 +85,6 @@ const revertir = async (participante_id) => {
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('kits', data);
   return data;
 };
 

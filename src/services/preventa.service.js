@@ -1,5 +1,4 @@
 const supabase = require('../config/db');
-const { replicateUpsert, replicateDelete } = require('./replication.service');
 
 const ESTADOS_BOLETO     = ['Asignado', 'Vendido', 'No vendido', 'Anulado'];
 const CATEGORIAS_VALIDAS = ['5K', '10K'];
@@ -64,7 +63,6 @@ const createAlumno = async ({
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('alumnos_vendedores', data);
   return data;
 };
 
@@ -112,7 +110,6 @@ const updateAlumno = async (id, {
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('alumnos_vendedores', data);
   return data;
 };
 
@@ -130,7 +127,6 @@ const desactivarAlumno = async (id) => {
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('alumnos_vendedores', data);
   return data;
 };
 
@@ -183,7 +179,6 @@ const asignarBoleto = async ({ alumno_id }) => {
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('boletos_preventa', data);
   return data;
 };
 
@@ -211,7 +206,6 @@ const asignarMultiple = async ({ alumno_id, cantidad }) => {
     .insert(boletoRows)
     .select();
   if (error) throw new Error(error.message);
-  (data || []).forEach((b) => replicateUpsert('boletos_preventa', b));
   return data;
 };
 
@@ -298,6 +292,18 @@ const marcarVendido = async (id, { nombre_comprador, categoria, talla_tshirt, mo
       .eq('id', participanteId);
     if (pErr) throw new Error(pErr.message);
   } else {
+    // Verificar límite de 200 cupos antes de crear participante desde preventa
+    const { count: cuposActivos, error: cuposErr } = await supabase
+      .from('participantes')
+      .select('*', { count: 'exact', head: true })
+      .eq('estado', 'Activo');
+    if (cuposErr) throw new Error(cuposErr.message);
+    if (cuposActivos >= 200) {
+      const err = new Error('No hay cupos disponibles. El límite máximo general es de 200 cupos');
+      err.status = 400;
+      throw err;
+    }
+
     // Crear participante nuevo — asignar numero_corredor en Node.js (sin trigger)
     const numero_corredor = await _nextNumeroCorredor();
     const { data: participante, error: pErr } = await supabase
@@ -333,7 +339,6 @@ const marcarVendido = async (id, { nombre_comprador, categoria, talla_tshirt, mo
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('boletos_preventa', data);
 
   // 3. Registrar/actualizar pago vinculado al participante
   const { error: pagoErr } = await supabase
@@ -390,7 +395,6 @@ const marcarNoVendido = async (id, { observacion }) => {
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('boletos_preventa', data);
   return data;
 };
 
@@ -429,7 +433,6 @@ const anularBoleto = async (id, { observacion }) => {
     .select()
     .single();
   if (error) throw new Error(error.message);
-  replicateUpsert('boletos_preventa', data);
   return data;
 };
 
